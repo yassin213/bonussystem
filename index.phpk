@@ -1,0 +1,141 @@
+<?php
+   ob_start();
+   session_start();
+   // // Sanitize the session variables to avoid XSS
+   // $partnerCode = htmlspecialchars($_SESSION['partner_code'], ENT_QUOTES, 'UTF-8');
+   // //$email = filter_var($_SESSION['email'], FILTER_SANITIZE_EMAIL);
+
+   // // Check if the user is logged in
+   // if (!isset($partner_code) && !isset($email) ) {
+   //    // Redirect to login if not logged in
+   //    header('Location: login.php');
+   //    exit();
+   // }
+
+require_once "validate_user.php";
+require_once "login-check.php";
+   
+include "db-connect.php";
+try {
+   // Create a new PDO connection
+   $conn = new PDO("mysql:host=$servername;dbname=$dbname", $username, $password);
+   $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+   
+// Get the full URL path from the REQUEST_URI
+$urlPath = $_SERVER['REQUEST_URI'];
+
+// Use a regular expression to capture the partner_code from the URL
+if (preg_match('/\/dev\/(\d+)\//', $urlPath, $matches)) {
+    $partner_code = $matches[1];  // The partner_code will be in the first capture group
+    $partner_code =  htmlspecialchars($partner_code);
+    $_SESSION['partner_code'] = $partner_code ;
+
+} else {
+   $partner_code = "Error!";
+}
+    ########## Step 1: Check if the partner is active #######
+   
+        // Step 1: Check if the partner is active
+        $stmt = $conn->prepare("
+            SELECT active 
+            FROM partner_info 
+            WHERE partner_code = :partner_code
+        ");
+        $stmt->bindParam(':partner_code', $partner_code, PDO::PARAM_INT);
+        $stmt->execute();
+    
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+        // Step 2: Verify the 'active' field
+        if ($result && $result['active'] != "true") { // If active is false
+         echo "
+         <div style='background-color: #ff9900; color: #ffffff; border: 1px solid #e68a00; padding: 20px; border-radius: 5px;'>
+             <h4 style='margin-top: 0; font-weight: bold;'>Access Denied</h4>
+             <p>The partner account associated with the code <strong style='color: #ffffff;'>" . htmlspecialchars($partner_code) . "</strong> is currently inactive. Please contact support for assistance.</p>
+             <hr style='border-top: 1px solid #e68a00;'>
+             <p style='margin-bottom: 0;'>Support: <a href='mailto:support@example.com' style='color: #ffffff; text-decoration: underline;'>support@example.com</a> or call <strong style='color: #ffffff;'>+1 800 123 4567</strong>.</p>
+         </div>";
+         exit; // Stop further execution
+     }
+     
+     
+    ########################################
+?>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <!-- Bootstrap CSS -->
+   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+   <title>Login Page</title>
+
+ 
+
+</head>
+<body>
+   <div class="container">
+      <div class="row justify-content-center align-items-center" style="height: 100vh;">
+         <div class="col-12 col-md-8 col-lg-5">
+            <div class="card shadow p-4">
+               <h2 class="text-center">Enter Username and Password</h2>
+               <?php
+               
+
+                  if (isset($_POST['login']) && !empty($_POST['username']) 
+                  && !empty($_POST['password'])) {
+                     $user=$_POST['username'];                  
+                     if (array_key_exists($user, $users)){
+                        if ($users[$_POST['username']]==$_POST['password']){
+                           $_SESSION['valid'] = true;
+                           $_SESSION['timeout'] = time();
+                           $_SESSION['username'] = $_POST['username'];
+                           $msg = "You have entered correct username and password";
+                           header('Location: /dev/' . $p_code . '/home.php'); // Redirect to unauthorized access page
+                           exit();
+
+                        }
+                        else {
+                           $msg = "You have entered wrong Password";
+                        }
+                     }
+                     else {
+                        $msg = "You have entered wrong user name";
+                     }
+                  }
+               ?>
+               <h4 class="text-danger text-center mt-3"></h4>
+               <form action="<?php echo htmlspecialchars($_SERVER['PHP_SELF']); ?>" method="post" class="mt-4">
+                  <div class="form-group">
+                     <label for="username">Username:</label>
+                     <input type="text" class="form-control" name="username" id="username" required>
+                  </div>
+                  <div class="form-group">
+                     <label for="password">Password:</label>
+                     <input type="password" class="form-control" name="password" id="password" required>
+                  </div>
+                  <button type="submit" name="login" class="btn btn-primary btn-block">Login</button>
+               </form>
+               <div class="text-center mt-3">
+                  <a href="logout.php" title="Logout">Click here to clean Session.</a>
+               </div>
+            </div>
+         </div>
+      </div>
+   </div>
+
+   <!-- Bootstrap JS and dependencies -->
+   <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+   <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+   <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+   
+  
+
+</body>
+</html>
+<?php  
+               }catch (PDOException $e) {
+    echo "Connection failed: " . $e->getMessage();
+}?>
+

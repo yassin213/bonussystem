@@ -1,0 +1,6 @@
+RewriteEngine On
+RewriteBase /dev/200/
+
+# Match URLs in the format /dev/200/1001 and redirect to reward.php
+RewriteRule ^(\d+)$ reward.php?partner_code=200&user_id=$1 [L,QSA]
+AddType audio/mpeg .mp3
